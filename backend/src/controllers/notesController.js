@@ -10,6 +10,14 @@ export async function getAllNotes(_, res) {
     }
 };
 
+/**
+ * 根据ID获取笔记详情
+ * @param {Object} req - Express请求对象，包含params属性
+ * @param {Object} req.params - 请求参数对象
+ * @param {string} req.params.id - 要查找的笔记的ID
+ * @param {Object} res - Express响应对象
+ * @returns {void}
+ */
 export async function getNoteById(req, res) {
     try {
         const note = await Note.findById(req.params.id);

@@ -24,3 +24,13 @@ dist-ssr
 *.sw?
 
 .env
+
+# Test
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+report/
+
+# Claude
+.claude/

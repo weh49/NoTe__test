@@ -1,0 +1,51 @@
+name: API Test Pipeline  #流水线名称
+
+on:  #什么时候触发流水线
+  push:
+    branches: [main]
+
+jobs:  #流水线要干的活
+  test:
+    runs-on: ubuntu-latest  #用什么系统跑
+
+    services:  #需要什么服务
+      mongodb:
+        image: mongo  #MongoDB镜像
+        ports: ["27017:27017"]
+    
+    steps:  #具体步骤
+      - uses: actions/checkout@v4  #拉代码
+      - name: Setup Node.js  #设置Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: install backend deps  #安装后端依赖
+        run: cd backend && npm install
+      
+      - name: start backend  #启动后端
+        run: cd backend && npm run dev &
+        env:
+          MONGODB_URI: mongodb://localhost:27017/thinkboard_mod_tut
+          PORT: "5001"
+
+      - name: Wait for backend  #等待后端启动完成
+        run: |
+          timeout 30 bash -c 'until curl -s 
+          http://localhost:5001/api/notes > /dev/null; do sleep 2; done'
+
+      - name: Setup python  #设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: install test deps  #安装测试依赖
+        run: pip install -r tests/requirements.txt
+
+      - name: run tests  #运行测试
+        run: cd tests && pytest testcases/ -v --alluredir=./report/allure-results
+      
+      - name: Generate allure report  #生成测试报告
+        uses: simple-elf/allure-report-action@master
+        if: always()  #无论是否成功都生成报告
+      
