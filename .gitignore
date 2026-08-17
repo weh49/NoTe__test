@@ -31,6 +31,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 report/
+reports/
+allure-report/
+allure-results/
 
 # Claude
 .claude/
