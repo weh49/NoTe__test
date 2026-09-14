@@ -12,40 +12,54 @@ jobs:  #流水线要干的活
       mongodb:
         image: mongo  #MongoDB镜像
         ports: ["27017:27017"]
-    
+        options: >-  #健康检查：等 MongoDB 真正就绪后再执行后续步骤
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok' || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
     steps:  #具体步骤
       - uses: actions/checkout@v4  #拉代码
       - name: Setup Node.js  #设置Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: install backend deps  #安装后端依赖
         run: cd backend && npm install
-      
-      - name: start backend  #启动后端
-        run: cd backend && npm start &
+
+      - name: start backend  #启动后端（后台运行，日志落盘便于排错）
+        run: |
+          cd backend
+          nohup npm start > /tmp/backend.log 2>&1 &
         env:
-          MONGO_URI: mongodb://localhost:27017/thinkboard
+          MONGO_URI: mongodb://127.0.0.1:27017/thinkboard  #用 127.0.0.1 避免 localhost 解析到 IPv6
           PORT: "5001"
 
-      - name: Wait for backend  #等待后端启动完成
+      - name: Wait for backend  #等待后端就绪（最多 60 秒，失败时打印后端日志）
         run: |
-          timeout 30 bash -c 'until curl -s 
-          http://localhost:5001/api/notes > /dev/null; do sleep 2; done'
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:5001/api/notes > /dev/null; then
+              echo "backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "=== backend log ==="
+          cat /tmp/backend.log
+          exit 1
 
       - name: Setup python  #设置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      
+
       - name: install test deps  #安装测试依赖
         run: pip install -r tests/requirements.txt
 
       - name: run tests  #运行测试
         run: cd tests && pytest testcases/ -v --alluredir=./report/allure-results
-      
+
       - name: Generate allure report  #生成测试报告
         uses: simple-elf/allure-report-action@master
         if: always()  #无论是否成功都生成报告
-      
